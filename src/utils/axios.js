@@ -25,9 +25,23 @@
 import axios from "axios";
 import { useAuthStore } from "./authStore";
 
+// Determine base URL: use proxy in development, direct URL in production
+const getBaseURL = () => {
+  // If VITE_API_BASE is explicitly set, use it
+  if (import.meta.env.VITE_API_BASE) {
+    return import.meta.env.VITE_API_BASE;
+  }
+  // In development, use the proxy path to avoid CORS
+  if (import.meta.env.DEV) {
+    return '/api';
+  }
+  // In production, use the full backend URL
+  return 'https://qaportal-backend-iyjk.onrender.com';
+};
+
 // Create axios instance
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || 'https://qaportal-backend-iyjk.onrender.com',
+  baseURL: getBaseURL(),
   withCredentials: true, // Needed for cookies/session
 });
 

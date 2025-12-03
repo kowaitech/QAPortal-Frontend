@@ -17,7 +17,7 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      console.log('Making API call to:', `${import.meta.env.VITE_API_BASE}/auth/login`);
+      console.log('Making API call to:', `${api.defaults.baseURL}/auth/login`);
       const { data } = await api.post('/auth/login', v);
       console.log('Login successful:', data);
       setAuth(data.user, data.accessToken);
