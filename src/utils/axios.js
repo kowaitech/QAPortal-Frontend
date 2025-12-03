@@ -27,7 +27,7 @@ import { useAuthStore } from "./authStore";
 
 // Create axios instance
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || 'https://qaportal.onrender.com',
+  baseURL: import.meta.env.VITE_API_BASE || 'https://qaportal-backend-iyjk.onrender.com',
   withCredentials: true, // Needed for cookies/session
 });
 
