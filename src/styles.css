@@ -1,0 +1,210 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Rich Text Editor Styles */
+.rich-text-editor {
+    position: relative;
+}
+
+.rich-text-editor .ql-editor {
+    min-height: 200px;
+    font-size: 14px;
+    line-height: 1.5;
+    outline: none;
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+}
+
+.rich-text-editor .ql-editor:focus {
+    outline: none;
+}
+
+.rich-text-editor .ql-toolbar {
+    border-top: 1px solid #ccc;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+    border-bottom: none;
+}
+
+.rich-text-editor .ql-container {
+    border-bottom: 1px solid #ccc;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+    border-top: none;
+}
+
+.rich-text-editor .ql-editor img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin: 8px 0;
+}
+
+.rich-text-editor .ql-editor img:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Read-only mode styles */
+.rich-text-editor[data-readonly="true"] .ql-toolbar {
+    display: none;
+}
+
+.rich-text-editor[data-readonly="true"] .ql-editor {
+    min-height: auto;
+    padding: 12px;
+    background-color: #f9f9f9;
+    cursor: default;
+}
+
+/* Ensure editor is interactive when not read-only */
+.rich-text-editor:not([data-readonly="true"]) .ql-editor {
+    cursor: text;
+}
+
+.rich-text-editor:not([data-readonly="true"]) .ql-editor:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 1px #3b82f6;
+}
+
+/* Image delete button styles */
+.rich-text-content {
+    position: relative;
+}
+
+.rich-text-content img {
+    position: relative;
+    cursor: pointer;
+}
+
+.rich-text-content img:hover {
+    opacity: 0.9;
+}
+
+/* Toast notifications */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease-out;
+}
+
+.toast.success {
+    background-color: #10b981;
+}
+
+.toast.error {
+    background-color: #ef4444;
+}
+
+.toast.info {
+    background-color: #3b82f6;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Global theme */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --brand-primary: 25 98% 52%;
+    /* blue */
+    --brand-secondary: 160 84% 39%;
+    /* green */
+    --brand-muted: 220 14% 96%;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    @apply bg-[#F9FAFB] text-[#1E293B] antialiased;
+}
+
+/* Global background image (full screen) */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100vh;
+    /* Use relative path so Vite rewrites it correctly for production */
+    background-image: url('/backgrounds/ma.jpg');
+    background-size: cover;
+    background-position: top center;
+    background-repeat: no-repeat;
+    opacity: 1;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Inputs */
+.input {
+    @apply border border-gray-200 rounded-xl px-3 py-2 w-full bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400 transition;
+}
+
+/* Buttons */
+.btn {
+    @apply rounded-xl px-4 py-2 font-medium transition ease-out duration-200 shadow-sm active:scale-[0.98];
+}
+
+.btn-primary {
+    @apply btn text-white bg-[#552e81] hover:bg-[#4b2a72] focus:ring-2 focus:ring-purple-300;
+}
+
+.btn-secondary {
+    @apply btn bg-white border border-gray-200 hover:border-purple-400 hover:bg-purple-50 text-gray-800;
+}
+
+.btn-ghost {
+    @apply btn bg-transparent text-[#552e81] hover:bg-purple-50;
+}
+
+/* Cards */
+.card {
+    @apply bg-white/90 backdrop-blur rounded-2xl shadow-lg p-6 border border-gray-100 transition hover:shadow-xl;
+}
+
+/* Layout helpers */
+.container-page {
+    @apply max-w-7xl mx-auto px-4 md:px-6 lg:px-8;
+}
+
+.section-title {
+    @apply text-2xl font-semibold tracking-tight;
+}
+
+.muted {
+    @apply text-gray-600;
+}
+
+/* Form element accents to purple */
+select.input,
+select,
+option:checked {
+    @apply focus:ring-purple-300 focus:border-purple-400;
+}
+
+/* Links and utility accents to purple */
+a,
+.link {
+    @apply text-[#552e81] hover:underline;
+}

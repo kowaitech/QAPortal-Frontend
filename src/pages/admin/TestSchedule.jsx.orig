@@ -1,0 +1,70 @@
+
+import React, { useEffect, useState } from 'react';
+import { useAuthStore } from '../../utils/authStore';
+
+export default function TestSchedule() {
+  const { accessToken } = useAuthStore.getState();
+  const [domains, setDomains] = useState([]);
+  const [title, setTitle] = useState('');
+  const [domainIds, setDomainIds] = useState([]);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_BASE}/domains`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(r => r.json())
+      .then(d => setDomains(d.domains || d))
+      .catch(()=>{});
+  }, []);
+
+  const toggle = (id) => {
+    setDomainIds(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
+  };
+
+  const save = async (e) => {
+    e.preventDefault();
+    const body = { title, domainIds, startDate, endDate, durationMinutes };
+    const r = await fetch(`${import.meta.env.VITE_API_BASE}/tests/admin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body)
+    });
+    if (r.ok) setMsg('Scheduled ✅'); else setMsg('Failed ❌');
+  };
+
+  return (
+    <div className="grid gap-4">
+      <h2 className="text-2xl font-semibold">Schedule Test</h2>
+      <form onSubmit={save} className="grid gap-3">
+        <input className="input" placeholder="Title" value={title} onChange={e=>setTitle(e.target.value)} />
+        <div>
+          <div className="font-medium mb-2">Choose Domains (from staff-added):</div>
+          <div className="flex gap-2 flex-wrap">
+            {domains.map(d => (
+              <button key={d._id} type="button"
+                onClick={()=>toggle(d._id)}
+                className={`px-3 py-1 rounded-full border ${domainIds.includes(d._id) ? 'bg-blue-600 text-white' : ''}`}>
+                {d.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid md:grid-cols-3 gap-3">
+          <label className="block">Start
+            <input type="datetime-local" className="input" value={startDate} onChange={e=>setStartDate(e.target.value)} />
+          </label>
+          <label className="block">End
+            <input type="datetime-local" className="input" value={endDate} onChange={e=>setEndDate(e.target.value)} />
+          </label>
+          <label className="block">Duration (mins)
+            <input type="number" className="input" value={durationMinutes} onChange={e=>setDurationMinutes(+e.target.value)} />
+          </label>
+        </div>
+        <button className="btn-primary w-max">Save</button>
+        {msg && <div className="text-sm">{msg}</div>}
+      </form>
+    </div>
+  );
+}
