@@ -43,8 +43,18 @@ export default function StaffDashboard() {
     try {
       const { data } = await api.get('/domains');
       setDomains(data.domains || []);
+      console.log("Domains fetched:", data.domains?.length || 0);
     } catch (e) {
       console.error("Fetch Domains Error:", e.response?.data || e.message);
+      const errorMessage = e.response?.data?.message || e.message || 'Failed to fetch domains';
+      showToast(errorMessage, 'error');
+      // Log more details for debugging
+      if (e.response) {
+        console.error("Response status:", e.response.status);
+        console.error("Response data:", e.response.data);
+      } else if (e.request) {
+        console.error("Request made but no response received:", e.request);
+      }
     }
   };
 
@@ -77,9 +87,11 @@ export default function StaffDashboard() {
     if (!name) { showToast('Enter domain name', 'info'); return; }
     setLoading(true);
     try {
-      await api.post('/domains', { name });
+      const { data } = await api.post('/domains', { name });
       setName('');
-      fetchDomains();
+      showToast('Domain created successfully', 'success');
+      // Fetch domains to refresh the list
+      await fetchDomains();
     } catch (e) {
       console.error("Add Domain Error:", e.response?.data || e.message);
       showToast(e.response?.data?.message || 'Error adding domain', 'error');
@@ -90,9 +102,13 @@ export default function StaffDashboard() {
   const deleteDomain = async (id) => {
     const ok = await dialog.confirm('Delete domain? This will also delete all questions and student answers.');
     if (!ok) return;
+    setLoading(true);
     try {
       await api.delete('/domains/' + id);
-      fetchDomains();
+      showToast('Domain deleted successfully', 'success');
+      // Refresh domains list
+      await fetchDomains();
+      // Clear selected domain if it was deleted
       if (selectedDomain && selectedDomain._id === id) {
         setSelectedDomain(null);
         setQuestions([]);
@@ -100,7 +116,15 @@ export default function StaffDashboard() {
       }
     } catch (e) {
       console.error("Delete Domain Error:", e.response?.data || e.message);
-      showToast(e.response?.data?.message || 'Error deleting domain', 'error');
+      const errorMessage = e.response?.data?.message || e.message || 'Error deleting domain';
+      showToast(errorMessage, 'error');
+      // Log more details for debugging
+      if (e.response) {
+        console.error("Response status:", e.response.status);
+        console.error("Response data:", e.response.data);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -373,8 +397,39 @@ export default function StaffDashboard() {
     saveAs(blob, `answers_marks_${selectedDomain.name}${testPart}.xlsx`);
   };
 
-  const downloadCompletedUsersExcel = () => {
-    const data = completedUsers.map(u => ({ Username: u.student?.name || '', 'User Email': u.student?.email || '', 'Test Title': u.test?.title || '' }));
+  const downloadCompletedUsersExcel = async () => {
+    if (!selectedDomain) {
+      showToast('Please select a domain first', 'error');
+      return;
+    }
+
+    // Fetch completed users if not already loaded
+    let usersToExport = completedUsers;
+    if (usersToExport.length === 0) {
+      try {
+        const { data } = await api.get(`/domains/${selectedDomain._id}/completed-users${selectedTestId ? `?testId=${selectedTestId}` : ''}`);
+        usersToExport = data.users || [];
+      } catch (e) {
+        console.error('Failed to fetch completed users:', e);
+        showToast('Failed to fetch completed users', 'error');
+        return;
+      }
+    }
+
+    // Check if there's any data to export
+    if (usersToExport.length === 0) {
+      showToast('No completed users found for this domain', 'info');
+      return;
+    }
+
+    // Map the data correctly
+    const data = usersToExport.map(u => ({
+      Username: u.student?.name || '',
+      'User Email': u.student?.email || '',
+      'Test Title': u.test?.title || ''
+    }));
+
+    // Create worksheet
     const ws = XLSX.utils.json_to_sheet(data, { header: ['Username', 'User Email', 'Test Title'] });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Completed Users');
@@ -383,6 +438,7 @@ export default function StaffDashboard() {
     const testPart = selectedTestId ? `_${domainTests.find(t => t._id === selectedTestId)?.title || 'test'}` : '';
     const domainPart = selectedDomain ? `_${selectedDomain.name}` : '';
     saveAs(blob, `completed_users${domainPart}${testPart}.xlsx`);
+    showToast(`Exported ${usersToExport.length} completed user(s)`, 'success');
   };
 
   return (
@@ -403,69 +459,153 @@ export default function StaffDashboard() {
 
       {/* Domain Management */}
       <div className="card">
-        <h3 className="text-xl font-semibold mb-4">Domain Management</h3>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">Domain Management</h3>
+            <p className="text-sm text-gray-500">Create and manage test domains</p>
+          </div>
+        </div>
 
         {/* Add Domain */}
-        <div className="flex gap-2 mb-4">
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="New domain name"
-            className="input flex-1"
-          />
-          <button
-            className="btn-primary"
-            onClick={addDomain}
-            disabled={loading}
-          >
-            Add Domain
-          </button>
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 mb-6 border border-purple-100">
+          <div className="flex gap-3">
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Enter domain name..."
+              className="input flex-1 bg-white"
+              onKeyPress={(e) => e.key === 'Enter' && !loading && addDomain()}
+            />
+            <button
+              className="btn-primary px-6 font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={addDomain}
+              disabled={loading || !name.trim()}
+            >
+              {loading ? 'Adding...' : 'Add Domain'}
+            </button>
+          </div>
         </div>
 
         {/* Domains List */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {domains.map(domain => (
-            <div key={domain._id} className="p-4 border rounded-lg">
-              <div className="flex justify-between items-start mb-2">
-                <h4 className="font-semibold">{domain.name}</h4>
-                {domain.canEdit && (
-                  <button
-                    className="text-sm text-red-600 hover:text-red-800"
-                    onClick={() => deleteDomain(domain._id)}
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-
-              <p className="text-sm text-gray-600 mb-2">
-                Created by: {domain.createdBy.name}
-              </p>
-
-              <div className="text-sm text-gray-600 mb-3">
-                Section A: {domain.questionCounts.sectionA}/5 questions<br />
-                Section B: {domain.questionCounts.sectionB}/5 questions
-              </div>
-
-              <div className="flex gap-2">
-                {domain.canEdit && (
-                  <button
-                    className="btn-primary text-sm"
-                    onClick={() => handleDomainSelect(domain)}
-                  >
-                    Manage Questions
-                  </button>
-                )}
-                <button
-                  className="btn-secondary text-sm"
-                  onClick={() => handleViewAnswers(domain)}
-                >
-                  View Answers
-                </button>
-              </div>
+        {domains.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-100 mb-4">
+              <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
             </div>
-          ))}
-        </div>
+            <p className="text-gray-500 text-lg font-medium">No domains yet</p>
+            <p className="text-gray-400 text-sm mt-1">Add your first domain to get started</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {domains.map(domain => {
+              const sectionA = domain.questionCounts?.sectionA || 0;
+              const sectionB = domain.questionCounts?.sectionB || 0;
+              const totalQuestions = sectionA + sectionB;
+              const isComplete = sectionA >= 5 && sectionB >= 5;
+              
+              return (
+                <div 
+                  key={domain._id} 
+                  className="group relative bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-purple-300 hover:shadow-lg transition-all duration-200"
+                >
+                  {/* Accent bar */}
+                  <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-xl ${
+                    isComplete ? 'bg-green-500' : totalQuestions > 0 ? 'bg-purple-500' : 'bg-gray-300'
+                  }`}></div>
+                  
+                  {/* Header with delete button */}
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-lg text-gray-900 truncate mb-1">{domain.name}</h4>
+                      <p className="text-xs text-gray-500 flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        {domain.createdBy?.name || 'Unknown'}
+                      </p>
+                    </div>
+                    {domain.canEdit && (
+                      <button
+                        className="ml-2 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        onClick={() => deleteDomain(domain._id)}
+                        title="Delete domain"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Question Progress */}
+                  <div className="mb-4 space-y-3">
+                    {/* Section A Progress */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Section A</span>
+                        <span className="text-xs font-bold text-gray-600">{sectionA}/5</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            sectionA >= 5 ? 'bg-green-500' : sectionA > 0 ? 'bg-purple-500' : 'bg-gray-300'
+                          }`}
+                          style={{ width: `${Math.min((sectionA / 5) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    {/* Section B Progress */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Section B</span>
+                        <span className="text-xs font-bold text-gray-600">{sectionB}/5</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            sectionB >= 5 ? 'bg-green-500' : sectionB > 0 ? 'bg-purple-500' : 'bg-gray-300'
+                          }`}
+                          style={{ width: `${Math.min((sectionB / 5) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status Badge */}
+                  {isComplete && (
+                    <div className="mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Complete
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 mt-4">
+                    {domain.canEdit && (
+                      <button
+                        className="btn-primary text-sm px-4 py-2 flex-1 font-semibold shadow-sm hover:shadow-md"
+                        onClick={() => handleDomainSelect(domain)}
+                      >
+                        Manage Questions
+                      </button>
+                    )}
+                    <button
+                      className="btn-secondary text-sm px-4 py-2 flex-1 font-semibold hover:bg-purple-50 hover:border-purple-300"
+                      onClick={() => handleViewAnswers(domain)}
+                    >
+                      View Answers
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Question Management */}
