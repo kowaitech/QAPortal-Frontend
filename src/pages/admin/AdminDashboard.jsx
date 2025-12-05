@@ -279,15 +279,36 @@ export default function AdminDashboard() {
     }));
   };
 
+  // Helper function to convert Date to local datetime-local format
+  const toLocalDateTimeString = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    // Get local date components
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   const handleEditTest = (test) => {
+    // Convert domain objects to IDs if they are objects, and remove duplicates
+    const domainIds = test.domains
+      ? [
+          ...new Set(
+            test.domains.map((d) =>
+              typeof d === "object" && d._id ? String(d._id) : String(d)
+            )
+          ),
+        ]
+      : [];
+
     setEditingTest({
       ...test,
-      startDate: test.startDate
-        ? new Date(test.startDate).toISOString().slice(0, 16)
-        : "",
-      endDate: test.endDate
-        ? new Date(test.endDate).toISOString().slice(0, 16)
-        : "",
+      domains: domainIds,
+      startDate: toLocalDateTimeString(test.startDate),
+      endDate: toLocalDateTimeString(test.endDate),
     });
   };
 
@@ -297,9 +318,43 @@ export default function AdminDashboard() {
       dialog.alert("Please select at least one domain");
       return;
     }
+
+    // Ensure domains are IDs (strings), not objects, and remove duplicates
+    const domainIds = [
+      ...new Set(
+        editingTest.domains.map((d) =>
+          typeof d === "object" && d._id ? String(d._id) : String(d)
+        )
+      ),
+    ];
+
+    // Convert datetime-local strings to ISO strings for backend
+    const startISO = editingTest.startDate
+      ? new Date(editingTest.startDate).toISOString()
+      : editingTest.startDate;
+    const endISO = editingTest.endDate
+      ? new Date(editingTest.endDate).toISOString()
+      : editingTest.endDate;
+
+    // Ensure eligibleStudents are IDs, not objects
+    const eligibleStudentIds = editingTest.eligibleStudents
+      ? editingTest.eligibleStudents.map((s) =>
+          typeof s === "object" && s._id ? String(s._id) : String(s)
+        )
+      : [];
+
+    const payload = {
+      title: editingTest.title,
+      domains: domainIds,
+      startDate: startISO,
+      endDate: endISO,
+      durationMinutes: editingTest.durationMinutes,
+      eligibleStudents: eligibleStudentIds,
+    };
+
     updateTest.mutate({
       id: editingTest._id,
-      payload: editingTest,
+      payload,
     });
   };
 
@@ -1532,34 +1587,53 @@ export default function AdminDashboard() {
                   <p className="text-gray-500">Loading domains...</p>
                 ) : (
                   <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {domainData?.map((d) => (
-                      <label
-                        key={d._id}
-                        className="flex items-center space-x-2 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={editingTest.domains.includes(d._id)}
-                          onChange={() => {
-                            const newDomains = editingTest.domains.includes(
-                              d._id
-                            )
-                              ? editingTest.domains.filter((id) => id !== d._id)
-                              : [...editingTest.domains, d._id];
-                            setEditingTest({
-                              ...editingTest,
-                              domains: newDomains,
-                            });
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-sm">
-                          {d.name}{" "}
-                          {d.questionCounts &&
-                            `(A:${d.questionCounts.sectionA}, B:${d.questionCounts.sectionB})`}
-                        </span>
-                      </label>
-                    ))}
+                    {domainData?.map((d) => {
+                      // Convert domains array to string IDs for comparison
+                      const domainIds = editingTest.domains.map((domain) =>
+                        typeof domain === "object" && domain._id
+                          ? String(domain._id)
+                          : String(domain)
+                      );
+                      const isChecked = domainIds.includes(String(d._id));
+
+                      return (
+                        <label
+                          key={d._id}
+                          className="flex items-center space-x-2 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              // Remove duplicates and ensure we're working with IDs
+                              const currentIds = editingTest.domains.map(
+                                (domain) =>
+                                  typeof domain === "object" && domain._id
+                                    ? String(domain._id)
+                                    : String(domain)
+                              );
+
+                              const newDomains = isChecked
+                                ? currentIds.filter(
+                                    (id) => String(id) !== String(d._id)
+                                  )
+                                : [...new Set([...currentIds, String(d._id)])];
+
+                              setEditingTest({
+                                ...editingTest,
+                                domains: newDomains,
+                              });
+                            }}
+                            className="rounded"
+                          />
+                          <span className="text-sm">
+                            {d.name}{" "}
+                            {d.questionCounts &&
+                              `(A:${d.questionCounts.sectionA}, B:${d.questionCounts.sectionB})`}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
                 {editingTest.domains.length > 0 && (

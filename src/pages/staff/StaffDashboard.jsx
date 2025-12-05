@@ -1,18 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
-import { api } from '../../utils/axios';
-import { useDialog } from '../../components/DialogProvider';
-import SimpleTextEditor from '../../components/SimpleTextEditor';
+import React, { useEffect, useState } from "react";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+import { api } from "../../utils/axios";
+import { useDialog } from "../../components/DialogProvider";
+import SimpleTextEditor from "../../components/SimpleTextEditor";
 
 export default function StaffDashboard() {
   const dialog = useDialog();
   // lightweight toast just for this page
   const [toasts, setToasts] = useState([]);
-  const showToast = (message, type = 'info', duration = 3000) => {
+  const showToast = (message, type = "info", duration = 3000) => {
     const id = Math.random().toString(36).slice(2);
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(
+      () => setToasts((prev) => prev.filter((t) => t.id !== id)),
+      duration
+    );
   };
 
   const [domains, setDomains] = useState([]);
@@ -20,18 +23,18 @@ export default function StaffDashboard() {
   const [questions, setQuestions] = useState([]);
   const [studentAnswers, setStudentAnswers] = useState([]);
   const [domainTests, setDomainTests] = useState([]);
-  const [selectedTestId, setSelectedTestId] = useState('');
-  const [markFilter, setMarkFilter] = useState('all'); // all | marked | unmarked
-  const [sortMode, setSortMode] = useState('default'); // default | recent | dateDesc | dateAsc
-  const [selectedDate, setSelectedDate] = useState(''); // YYYY-MM-DD
+  const [selectedTestId, setSelectedTestId] = useState("");
+  const [markFilter, setMarkFilter] = useState("all"); // all | marked | unmarked
+  const [sortMode, setSortMode] = useState("default"); // default | recent | dateDesc | dateAsc
+  const [selectedDate, setSelectedDate] = useState(""); // YYYY-MM-DD
   const [completedUsers, setCompletedUsers] = useState([]);
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
   const [qform, setQform] = useState({
-    title: '',
-    description: '',
-    section: 'A',
-    difficulty: 'medium',
-    answerText: ''
+    title: "",
+    description: "",
+    section: "A",
+    difficulty: "medium",
+    answerText: "",
   });
   const [loading, setLoading] = useState(false);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
@@ -41,13 +44,14 @@ export default function StaffDashboard() {
   // Fetch domains
   const fetchDomains = async () => {
     try {
-      const { data } = await api.get('/domains');
+      const { data } = await api.get("/domains");
       setDomains(data.domains || []);
       console.log("Domains fetched:", data.domains?.length || 0);
     } catch (e) {
       console.error("Fetch Domains Error:", e.response?.data || e.message);
-      const errorMessage = e.response?.data?.message || e.message || 'Failed to fetch domains';
-      showToast(errorMessage, 'error');
+      const errorMessage =
+        e.response?.data?.message || e.message || "Failed to fetch domains";
+      showToast(errorMessage, "error");
       // Log more details for debugging
       if (e.response) {
         console.error("Response status:", e.response.status);
@@ -71,10 +75,40 @@ export default function StaffDashboard() {
   // Fetch student answers for a domain
   const fetchStudentAnswers = async (domainId, testId) => {
     try {
-      const { data } = await api.get(`/domains/${domainId}/answers${testId ? `?testId=${testId}` : ''}`);
+      console.log(
+        "Fetching student answers for domain:",
+        domainId,
+        "testId:",
+        testId || "all"
+      );
+      const { data } = await api.get(
+        `/domains/${domainId}/answers${testId ? `?testId=${testId}` : ""}`
+      );
+      console.log(
+        "Student answers received:",
+        data.answers?.length || 0,
+        "answers"
+      );
       setStudentAnswers(data.answers || []);
+      if (data.answers && data.answers.length === 0) {
+        showToast("No student answers found for this domain", "info");
+      } else {
+        showToast(
+          `Loaded ${data.answers?.length || 0} student submission(s)`,
+          "success"
+        );
+      }
     } catch (e) {
-      console.error("Fetch Student Answers Error:", e.response?.data || e.message);
+      console.error(
+        "Fetch Student Answers Error:",
+        e.response?.data || e.message
+      );
+      const errorMessage =
+        e.response?.data?.message ||
+        e.message ||
+        "Failed to fetch student answers";
+      showToast(errorMessage, "error");
+      setStudentAnswers([]);
     }
   };
 
@@ -84,28 +118,35 @@ export default function StaffDashboard() {
 
   // Add domain
   const addDomain = async () => {
-    if (!name) { showToast('Enter domain name', 'info'); return; }
+    if (!name) {
+      showToast("Enter domain name", "info");
+      return;
+    }
     setLoading(true);
     try {
-      const { data } = await api.post('/domains', { name });
-      setName('');
-      showToast('Domain created successfully', 'success');
+      const { data } = await api.post("/domains", { name });
+      setName("");
+      showToast("Domain created successfully", "success");
       // Fetch domains to refresh the list
       await fetchDomains();
     } catch (e) {
       console.error("Add Domain Error:", e.response?.data || e.message);
-      showToast(e.response?.data?.message || 'Error adding domain', 'error');
-    } finally { setLoading(false); }
+      showToast(e.response?.data?.message || "Error adding domain", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Delete domain
   const deleteDomain = async (id) => {
-    const ok = await dialog.confirm('Delete domain? This will also delete all questions and student answers.');
+    const ok = await dialog.confirm(
+      "Delete domain? This will also delete all questions and student answers."
+    );
     if (!ok) return;
     setLoading(true);
     try {
-      await api.delete('/domains/' + id);
-      showToast('Domain deleted successfully', 'success');
+      await api.delete("/domains/" + id);
+      showToast("Domain deleted successfully", "success");
       // Refresh domains list
       await fetchDomains();
       // Clear selected domain if it was deleted
@@ -116,8 +157,9 @@ export default function StaffDashboard() {
       }
     } catch (e) {
       console.error("Delete Domain Error:", e.response?.data || e.message);
-      const errorMessage = e.response?.data?.message || e.message || 'Error deleting domain';
-      showToast(errorMessage, 'error');
+      const errorMessage =
+        e.response?.data?.message || e.message || "Error deleting domain";
+      showToast(errorMessage, "error");
       // Log more details for debugging
       if (e.response) {
         console.error("Response status:", e.response.status);
@@ -131,7 +173,7 @@ export default function StaffDashboard() {
   // Create or update question
   const createQuestion = async () => {
     if (!qform.title || !qform.description || !selectedDomain) {
-      showToast('Fill title, description and select a domain', 'info');
+      showToast("Fill title, description and select a domain", "info");
       return;
     }
 
@@ -142,32 +184,37 @@ export default function StaffDashboard() {
         description: qform.description,
         section: qform.section,
         difficulty: qform.difficulty,
-        answerText: qform.answerText
+        answerText: qform.answerText,
       };
 
       if (editingQuestion) {
         await api.put(`/questions/${editingQuestion._id}`, payload);
-        showToast('Question updated successfully', 'success');
+        showToast("Question updated successfully", "success");
       } else {
         await api.post(`/questions/domain/${selectedDomain._id}`, payload);
-        showToast('Question created successfully', 'success');
+        showToast("Question created successfully", "success");
       }
 
       setQform({
-        title: '',
-        description: '',
-        section: 'A',
-        difficulty: 'medium',
-        answerText: ''
+        title: "",
+        description: "",
+        section: "A",
+        difficulty: "medium",
+        answerText: "",
       });
       setShowQuestionForm(false);
       setEditingQuestion(null);
       fetchQuestions(selectedDomain._id);
       fetchDomains(); // Refresh to update question counts
     } catch (e) {
-      console.error("Create/Update Question Error:", e.response?.data || e.message);
-      showToast(e.response?.data?.message || 'Error saving question', 'error');
-    } finally { setLoading(false); }
+      console.error(
+        "Create/Update Question Error:",
+        e.response?.data || e.message
+      );
+      showToast(e.response?.data?.message || "Error saving question", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Edit question
@@ -177,7 +224,7 @@ export default function StaffDashboard() {
       description: question.description,
       section: question.section,
       difficulty: question.difficulty,
-      answerText: question.answerText || ''
+      answerText: question.answerText || "",
     });
     setEditingQuestion(question);
     setShowQuestionForm(true);
@@ -185,29 +232,36 @@ export default function StaffDashboard() {
 
   // Delete question
   const deleteQuestion = async (questionId) => {
-    const ok = await dialog.confirm('Delete this question? This action cannot be undone.');
+    const ok = await dialog.confirm(
+      "Delete this question? This action cannot be undone."
+    );
     if (!ok) return;
 
     setLoading(true);
     try {
       await api.delete(`/questions/${questionId}`);
-      showToast('Question deleted successfully', 'success');
+      showToast("Question deleted successfully", "success");
       fetchQuestions(selectedDomain._id);
       fetchDomains(); // Refresh to update question counts
     } catch (e) {
       console.error("Delete Question Error:", e.response?.data || e.message);
-      showToast(e.response?.data?.message || 'Error deleting question', 'error');
-    } finally { setLoading(false); }
+      showToast(
+        e.response?.data?.message || "Error deleting question",
+        "error"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Cancel editing
   const cancelEdit = () => {
     setQform({
-      title: '',
-      description: '',
-      section: 'A',
-      difficulty: 'medium',
-      answerText: ''
+      title: "",
+      description: "",
+      section: "A",
+      difficulty: "medium",
+      answerText: "",
     });
     setEditingQuestion(null);
     setShowQuestionForm(false);
@@ -226,180 +280,249 @@ export default function StaffDashboard() {
     setSelectedDomain(domain);
     setShowAnswers(true);
     setShowQuestionForm(false);
-    fetchStudentAnswers(domain._id, '');
+    fetchStudentAnswers(domain._id, "");
     // load tests for filter
-    api.get(`/domains/${domain._id}/tests`).then(({ data }) => setDomainTests(data.tests || [])).catch(() => setDomainTests([]));
-    setSelectedTestId('');
+    api
+      .get(`/domains/${domain._id}/tests`)
+      .then(({ data }) => setDomainTests(data.tests || []))
+      .catch(() => setDomainTests([]));
+    setSelectedTestId("");
   };
 
   const handleApplyFilter = () => {
     if (!selectedDomain) return;
-    fetchStudentAnswers(selectedDomain._id, selectedTestId || '');
-    api.get(`/domains/${selectedDomain._id}/completed-users${selectedTestId ? `?testId=${selectedTestId}` : ''}`)
+    fetchStudentAnswers(selectedDomain._id, selectedTestId || "");
+    api
+      .get(
+        `/domains/${selectedDomain._id}/completed-users${
+          selectedTestId ? `?testId=${selectedTestId}` : ""
+        }`
+      )
       .then(({ data }) => setCompletedUsers(data.users || []))
       .catch(() => setCompletedUsers([]));
   };
 
   const addMark = async (answerId) => {
-    const m = await dialog.prompt('Enter mark for this answer:', { defaultValue: '0' });
+    const m = await dialog.prompt("Enter mark for this answer:", {
+      defaultValue: "0",
+    });
     if (m == null || m === false) return; // cancelled
     const mark = Number(m);
     if (Number.isNaN(mark) || mark < 0) {
-      await dialog.alert('Please enter a non-negative number');
+      await dialog.alert("Please enter a non-negative number");
       return;
     }
     try {
-      const { data } = await api.post('/student-answers/marks/add', { answerId, mark });
-      showToast(data.message || 'Mark saved successfully', 'success');
+      const { data } = await api.post("/student-answers/marks/add", {
+        answerId,
+        mark,
+      });
+      showToast(data.message || "Mark saved successfully", "success");
       // update in UI
-      setStudentAnswers(prev => prev.map(s => ({
-        ...s,
-        sections: {
-          A: s.sections.A.map(a => a._id === answerId ? { ...a, mark, markSubmitted: true } : a),
-          B: s.sections.B.map(a => a._id === answerId ? { ...a, mark, markSubmitted: true } : a)
-        }
-      })));
+      setStudentAnswers((prev) =>
+        prev.map((s) => ({
+          ...s,
+          sections: {
+            A: s.sections.A.map((a) =>
+              a._id === answerId ? { ...a, mark, markSubmitted: true } : a
+            ),
+            B: s.sections.B.map((a) =>
+              a._id === answerId ? { ...a, mark, markSubmitted: true } : a
+            ),
+          },
+        }))
+      );
     } catch (e) {
-      console.error('Add mark error', e.response?.data || e.message);
-      dialog.alert(e.response?.data?.message || 'Failed to add mark');
+      console.error("Add mark error", e.response?.data || e.message);
+      dialog.alert(e.response?.data?.message || "Failed to add mark");
     }
   };
 
   const editMark = async (answerId, currentMark) => {
-    const m = await dialog.prompt('Edit mark for this answer:', { defaultValue: String(currentMark) });
+    const m = await dialog.prompt("Edit mark for this answer:", {
+      defaultValue: String(currentMark),
+    });
     if (m == null || m === false) return; // cancelled
     const mark = Number(m);
     if (Number.isNaN(mark) || mark < 0) {
-      await dialog.alert('Please enter a non-negative number');
+      await dialog.alert("Please enter a non-negative number");
       return;
     }
     try {
-      const { data } = await api.put(`/student-answers/marks/edit/${answerId}`, { mark });
-      showToast(data.message || 'Mark updated successfully', 'success');
+      const { data } = await api.put(
+        `/student-answers/marks/edit/${answerId}`,
+        { mark }
+      );
+      showToast(data.message || "Mark updated successfully", "success");
       // update in UI
-      setStudentAnswers(prev => prev.map(s => ({
-        ...s,
-        sections: {
-          A: s.sections.A.map(a => a._id === answerId ? { ...a, mark } : a),
-          B: s.sections.B.map(a => a._id === answerId ? { ...a, mark } : a)
-        }
-      })));
+      setStudentAnswers((prev) =>
+        prev.map((s) => ({
+          ...s,
+          sections: {
+            A: s.sections.A.map((a) =>
+              a._id === answerId ? { ...a, mark } : a
+            ),
+            B: s.sections.B.map((a) =>
+              a._id === answerId ? { ...a, mark } : a
+            ),
+          },
+        }))
+      );
     } catch (e) {
-      console.error('Edit mark error', e.response?.data || e.message);
-      dialog.alert(e.response?.data?.message || 'Failed to update mark');
+      console.error("Edit mark error", e.response?.data || e.message);
+      dialog.alert(e.response?.data?.message || "Failed to update mark");
     }
   };
 
   const calculateTotalForStudent = async (studentId) => {
     if (!selectedDomain) return;
     try {
-      const { data } = await api.post('/student-answers/calculate-total', {
+      const { data } = await api.post("/student-answers/calculate-total", {
         studentId,
         domainId: selectedDomain._id,
-        testId: selectedTestId || undefined
+        testId: selectedTestId || undefined,
       });
-      showToast(`Total calculated: ${data.total}`, 'success');
+      showToast(`Total calculated: ${data.total}`, "success");
       // attach total onto that student's card for display
-      setStudentAnswers(prev => prev.map(s => s.student._id === studentId ? { ...s, totalMark: data.total } : s));
+      setStudentAnswers((prev) =>
+        prev.map((s) =>
+          s.student._id === studentId ? { ...s, totalMark: data.total } : s
+        )
+      );
     } catch (e) {
-      console.error('Calculate total error', e.response?.data || e.message);
-      dialog.alert(e.response?.data?.message || 'Failed to calculate total');
+      console.error("Calculate total error", e.response?.data || e.message);
+      dialog.alert(e.response?.data?.message || "Failed to calculate total");
     }
   };
 
   // Delete image from student answer
   const deleteImageFromAnswer = async (imageUrl, answerId) => {
     try {
-      console.log('Deleting image URL:', imageUrl);
-      
+      console.log("Deleting image URL:", imageUrl);
+
       // Call the backend endpoint which handles both Cloudinary and database deletion
-      const response = await api.delete(`/student-answers/answers/image/${answerId}`, { 
-        data: { imageUrl } 
-      });
-      
-      console.log('Image deletion response:', response.data);
-      showToast(response.data.message || 'Answer image deleted successfully', 'success');
+      const response = await api.delete(
+        `/student-answers/answers/image/${answerId}`,
+        {
+          data: { imageUrl },
+        }
+      );
+
+      console.log("Image deletion response:", response.data);
+      showToast(
+        response.data.message || "Answer image deleted successfully",
+        "success"
+      );
 
       // Refresh the answers to show updated content
       if (selectedDomain) {
-        fetchStudentAnswers(selectedDomain._id, selectedTestId || '');
+        fetchStudentAnswers(selectedDomain._id, selectedTestId || "");
       }
     } catch (error) {
-      console.error('Error deleting image:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to delete image';
-      showToast(errorMessage, 'error');
+      console.error("Error deleting image:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Failed to delete image";
+      showToast(errorMessage, "error");
     }
   };
 
   // Extract public ID from Cloudinary URL
   const extractPublicIdFromUrl = (url) => {
-    console.log('Extracting public ID from URL:', url);
-    
+    console.log("Extracting public ID from URL:", url);
+
     if (!url) {
-      console.log('No URL provided');
+      console.log("No URL provided");
       return null;
     }
-    
+
     // Handle base64 data URLs
-    if (url.startsWith('data:')) {
-      console.log('Base64 data URL detected');
+    if (url.startsWith("data:")) {
+      console.log("Base64 data URL detected");
       return null;
     }
-    
+
     // Handle Cloudinary URLs
-    if (!url.includes('cloudinary.com')) {
-      console.log('Not a Cloudinary URL');
+    if (!url.includes("cloudinary.com")) {
+      console.log("Not a Cloudinary URL");
       return null;
     }
 
     try {
-      const parts = url.split('/');
+      const parts = url.split("/");
       const filename = parts[parts.length - 1];
-      const publicId = filename.split('.')[0];
+      const publicId = filename.split(".")[0];
 
       // Reconstruct the full public ID with folder
-      const folderIndex = url.indexOf('/exam-answers/');
+      const folderIndex = url.indexOf("/exam-answers/");
       if (folderIndex !== -1) {
-        const folderPath = url.substring(folderIndex + 1, url.lastIndexOf('/'));
+        const folderPath = url.substring(folderIndex + 1, url.lastIndexOf("/"));
         const fullPublicId = `${folderPath}/${publicId}`;
-        console.log('Extracted public ID with folder:', fullPublicId);
+        console.log("Extracted public ID with folder:", fullPublicId);
         return fullPublicId;
       }
 
-      console.log('Extracted public ID without folder:', publicId);
+      console.log("Extracted public ID without folder:", publicId);
       return publicId;
     } catch (error) {
-      console.error('Error extracting public ID:', error);
+      console.error("Error extracting public ID:", error);
       return null;
     }
   };
 
-  const allStudentsHaveTotals = studentAnswers.length > 0 && studentAnswers.every(s => typeof s.totalMark === 'number');
+  const allStudentsHaveTotals =
+    studentAnswers.length > 0 &&
+    studentAnswers.every((s) => typeof s.totalMark === "number");
 
   // Build CSV strings for Excel (compatible)
   const downloadAnswersExcel = () => {
     if (!selectedDomain) return;
-    const maxQ = Math.max(0, ...studentAnswers.map(s => (s.sections.A.length + s.sections.B.length)));
-    const headers = ['Username', 'Email', ...Array.from({ length: maxQ }, (_, i) => `Q${i + 1} Mark`), 'Total'];
+    const maxQ = Math.max(
+      0,
+      ...studentAnswers.map((s) => s.sections.A.length + s.sections.B.length)
+    );
+    const headers = [
+      "Username",
+      "Email",
+      ...Array.from({ length: maxQ }, (_, i) => `Q${i + 1} Mark`),
+      "Total",
+    ];
 
-    const data = studentAnswers.map(s => {
-      const marks = [...s.sections.A, ...s.sections.B].map(a => a.mark ?? 0);
-      while (marks.length < maxQ) marks.push('');
-      return { Username: s.student.name, 'User Email': s.student.email, ...Object.fromEntries(marks.map((m, i) => [`Q${i + 1} Mark`, m])), 'Total Mark': s.totalMark ?? '' };
+    const data = studentAnswers.map((s) => {
+      const marks = [...s.sections.A, ...s.sections.B].map((a) => a.mark ?? 0);
+      while (marks.length < maxQ) marks.push("");
+      return {
+        Username: s.student.name,
+        "User Email": s.student.email,
+        ...Object.fromEntries(marks.map((m, i) => [`Q${i + 1} Mark`, m])),
+        "Total Mark": s.totalMark ?? "",
+      };
     });
 
-    const ws = XLSX.utils.json_to_sheet(data, { header: ['Username', 'User Email', ...Array.from({ length: maxQ }, (_, i) => `Q${i + 1} Mark`), 'Total Mark'] });
+    const ws = XLSX.utils.json_to_sheet(data, {
+      header: [
+        "Username",
+        "User Email",
+        ...Array.from({ length: maxQ }, (_, i) => `Q${i + 1} Mark`),
+        "Total Mark",
+      ],
+    });
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Answers & Marks');
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const testPart = selectedTestId ? `_${domainTests.find(t => t._id === selectedTestId)?.title || 'test'}` : '';
+    XLSX.utils.book_append_sheet(wb, ws, "Answers & Marks");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const testPart = selectedTestId
+      ? `_${domainTests.find((t) => t._id === selectedTestId)?.title || "test"}`
+      : "";
     saveAs(blob, `answers_marks_${selectedDomain.name}${testPart}.xlsx`);
   };
 
   const downloadCompletedUsersExcel = async () => {
     if (!selectedDomain) {
-      showToast('Please select a domain first', 'error');
+      showToast("Please select a domain first", "error");
       return;
     }
 
@@ -407,46 +530,65 @@ export default function StaffDashboard() {
     let usersToExport = completedUsers;
     if (usersToExport.length === 0) {
       try {
-        const { data } = await api.get(`/domains/${selectedDomain._id}/completed-users${selectedTestId ? `?testId=${selectedTestId}` : ''}`);
+        const { data } = await api.get(
+          `/domains/${selectedDomain._id}/completed-users${
+            selectedTestId ? `?testId=${selectedTestId}` : ""
+          }`
+        );
         usersToExport = data.users || [];
       } catch (e) {
-        console.error('Failed to fetch completed users:', e);
-        showToast('Failed to fetch completed users', 'error');
+        console.error("Failed to fetch completed users:", e);
+        showToast("Failed to fetch completed users", "error");
         return;
       }
     }
 
     // Check if there's any data to export
     if (usersToExport.length === 0) {
-      showToast('No completed users found for this domain', 'info');
+      showToast("No completed users found for this domain", "info");
       return;
     }
 
     // Map the data correctly
-    const data = usersToExport.map(u => ({
-      Username: u.student?.name || '',
-      'User Email': u.student?.email || '',
-      'Test Title': u.test?.title || ''
+    const data = usersToExport.map((u) => ({
+      Username: u.student?.name || "",
+      "User Email": u.student?.email || "",
+      "Test Title": u.test?.title || "",
     }));
 
     // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(data, { header: ['Username', 'User Email', 'Test Title'] });
+    const ws = XLSX.utils.json_to_sheet(data, {
+      header: ["Username", "User Email", "Test Title"],
+    });
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Completed Users');
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const testPart = selectedTestId ? `_${domainTests.find(t => t._id === selectedTestId)?.title || 'test'}` : '';
-    const domainPart = selectedDomain ? `_${selectedDomain.name}` : '';
+    XLSX.utils.book_append_sheet(wb, ws, "Completed Users");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const testPart = selectedTestId
+      ? `_${domainTests.find((t) => t._id === selectedTestId)?.title || "test"}`
+      : "";
+    const domainPart = selectedDomain ? `_${selectedDomain.name}` : "";
     saveAs(blob, `completed_users${domainPart}${testPart}.xlsx`);
-    showToast(`Exported ${usersToExport.length} completed user(s)`, 'success');
+    showToast(`Exported ${usersToExport.length} completed user(s)`, "success");
   };
 
   return (
     <div className="grid gap-6">
       {/* Page toasts */}
       <div className="fixed top-4 right-4 z-50 space-y-2">
-        {toasts.map(t => (
-          <div key={t.id} className={`px-4 py-2 rounded-xl shadow-lg text-sm text-white backdrop-blur ${t.type === 'error' ? 'bg-red-600/90' : t.type === 'success' ? 'bg-green-600/90' : 'bg-blue-600/90'}`}>
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className={`px-4 py-2 rounded-xl shadow-lg text-sm text-white backdrop-blur ${
+              t.type === "error"
+                ? "bg-red-600/90"
+                : t.type === "success"
+                ? "bg-green-600/90"
+                : "bg-blue-600/90"
+            }`}
+          >
             {t.message}
           </div>
         ))}
@@ -454,15 +596,21 @@ export default function StaffDashboard() {
       {/* Header */}
       <div className="card">
         <h2 className="text-2xl font-semibold mb-4">Staff Dashboard</h2>
-        <p className="text-gray-600 mb-4">Manage domains, questions, and view student submissions.</p>
+        <p className="text-gray-600 mb-4">
+          Manage domains, questions, and view student submissions.
+        </p>
       </div>
 
       {/* Domain Management */}
       <div className="card">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">Domain Management</h3>
-            <p className="text-sm text-gray-500">Create and manage test domains</p>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">
+              Domain Management
+            </h3>
+            <p className="text-sm text-gray-500">
+              Create and manage test domains
+            </p>
           </div>
         </div>
 
@@ -471,17 +619,17 @@ export default function StaffDashboard() {
           <div className="flex gap-3">
             <input
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Enter domain name..."
               className="input flex-1 bg-white"
-              onKeyPress={(e) => e.key === 'Enter' && !loading && addDomain()}
+              onKeyPress={(e) => e.key === "Enter" && !loading && addDomain()}
             />
             <button
               className="btn-primary px-6 font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={addDomain}
               disabled={loading || !name.trim()}
             >
-              {loading ? 'Adding...' : 'Add Domain'}
+              {loading ? "Adding..." : "Add Domain"}
             </button>
           </div>
         </div>
@@ -490,40 +638,70 @@ export default function StaffDashboard() {
         {domains.length === 0 ? (
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-100 mb-4">
-              <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              <svg
+                className="w-8 h-8 text-purple-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
               </svg>
             </div>
             <p className="text-gray-500 text-lg font-medium">No domains yet</p>
-            <p className="text-gray-400 text-sm mt-1">Add your first domain to get started</p>
+            <p className="text-gray-400 text-sm mt-1">
+              Add your first domain to get started
+            </p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {domains.map(domain => {
+            {domains.map((domain) => {
               const sectionA = domain.questionCounts?.sectionA || 0;
               const sectionB = domain.questionCounts?.sectionB || 0;
               const totalQuestions = sectionA + sectionB;
               const isComplete = sectionA >= 5 && sectionB >= 5;
-              
+
               return (
-                <div 
-                  key={domain._id} 
+                <div
+                  key={domain._id}
                   className="group relative bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-purple-300 hover:shadow-lg transition-all duration-200"
                 >
                   {/* Accent bar */}
-                  <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-xl ${
-                    isComplete ? 'bg-green-500' : totalQuestions > 0 ? 'bg-purple-500' : 'bg-gray-300'
-                  }`}></div>
-                  
+                  <div
+                    className={`absolute top-0 left-0 right-0 h-1 rounded-t-xl ${
+                      isComplete
+                        ? "bg-green-500"
+                        : totalQuestions > 0
+                        ? "bg-purple-500"
+                        : "bg-gray-300"
+                    }`}
+                  ></div>
+
                   {/* Header with delete button */}
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-lg text-gray-900 truncate mb-1">{domain.name}</h4>
+                      <h4 className="font-bold text-lg text-gray-900 truncate mb-1">
+                        {domain.name}
+                      </h4>
                       <p className="text-xs text-gray-500 flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                          />
                         </svg>
-                        {domain.createdBy?.name || 'Unknown'}
+                        {domain.createdBy?.name || "Unknown"}
                       </p>
                     </div>
                     {domain.canEdit && (
@@ -532,8 +710,18 @@ export default function StaffDashboard() {
                         onClick={() => deleteDomain(domain._id)}
                         title="Delete domain"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
                         </svg>
                       </button>
                     )}
@@ -544,31 +732,51 @@ export default function StaffDashboard() {
                     {/* Section A Progress */}
                     <div>
                       <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Section A</span>
-                        <span className="text-xs font-bold text-gray-600">{sectionA}/5</span>
+                        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                          Section A
+                        </span>
+                        <span className="text-xs font-bold text-gray-600">
+                          {sectionA}/5
+                        </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
+                        <div
                           className={`h-2 rounded-full transition-all duration-300 ${
-                            sectionA >= 5 ? 'bg-green-500' : sectionA > 0 ? 'bg-purple-500' : 'bg-gray-300'
+                            sectionA >= 5
+                              ? "bg-green-500"
+                              : sectionA > 0
+                              ? "bg-purple-500"
+                              : "bg-gray-300"
                           }`}
-                          style={{ width: `${Math.min((sectionA / 5) * 100, 100)}%` }}
+                          style={{
+                            width: `${Math.min((sectionA / 5) * 100, 100)}%`,
+                          }}
                         ></div>
                       </div>
                     </div>
-                    
+
                     {/* Section B Progress */}
                     <div>
                       <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Section B</span>
-                        <span className="text-xs font-bold text-gray-600">{sectionB}/5</span>
+                        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                          Section B
+                        </span>
+                        <span className="text-xs font-bold text-gray-600">
+                          {sectionB}/5
+                        </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
+                        <div
                           className={`h-2 rounded-full transition-all duration-300 ${
-                            sectionB >= 5 ? 'bg-green-500' : sectionB > 0 ? 'bg-purple-500' : 'bg-gray-300'
+                            sectionB >= 5
+                              ? "bg-green-500"
+                              : sectionB > 0
+                              ? "bg-purple-500"
+                              : "bg-gray-300"
                           }`}
-                          style={{ width: `${Math.min((sectionB / 5) * 100, 100)}%` }}
+                          style={{
+                            width: `${Math.min((sectionB / 5) * 100, 100)}%`,
+                          }}
                         ></div>
                       </div>
                     </div>
@@ -577,8 +785,16 @@ export default function StaffDashboard() {
                   {/* Status Badge */}
                   {isComplete && (
                     <div className="mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                       Complete
                     </div>
@@ -619,7 +835,7 @@ export default function StaffDashboard() {
               className="btn-primary"
               onClick={() => setShowQuestionForm(!showQuestionForm)}
             >
-              {showQuestionForm ? 'Cancel' : 'Add Question'}
+              {showQuestionForm ? "Cancel" : "Add Question"}
             </button>
           </div>
 
@@ -703,20 +919,22 @@ export default function StaffDashboard() {
           {showQuestionForm && (
             <div className="p-4 border rounded-lg mb-4">
               <h4 className="font-semibold mb-3">
-                {editingQuestion ? 'Edit Question' : 'Add New Question'}
+                {editingQuestion ? "Edit Question" : "Add New Question"}
               </h4>
 
               <input
                 placeholder="Question Title"
                 value={qform.title}
-                onChange={e => setQform({ ...qform, title: e.target.value })}
+                onChange={(e) => setQform({ ...qform, title: e.target.value })}
                 className="input mb-3"
               />
 
               <textarea
                 placeholder="Question Description"
                 value={qform.description}
-                onChange={e => setQform({ ...qform, description: e.target.value })}
+                onChange={(e) =>
+                  setQform({ ...qform, description: e.target.value })
+                }
                 className="input mb-3"
                 rows={4}
               />
@@ -724,7 +942,9 @@ export default function StaffDashboard() {
               <div className="flex gap-2 mb-3">
                 <select
                   value={qform.section}
-                  onChange={e => setQform({ ...qform, section: e.target.value })}
+                  onChange={(e) =>
+                    setQform({ ...qform, section: e.target.value })
+                  }
                   className="input"
                 >
                   <option value="A">Section A</option>
@@ -733,7 +953,9 @@ export default function StaffDashboard() {
 
                 <select
                   value={qform.difficulty}
-                  onChange={e => setQform({ ...qform, difficulty: e.target.value })}
+                  onChange={(e) =>
+                    setQform({ ...qform, difficulty: e.target.value })
+                  }
                   className="input"
                 >
                   <option value="easy">Easy</option>
@@ -750,7 +972,9 @@ export default function StaffDashboard() {
                 <textarea
                   placeholder="Enter reference answer (optional)"
                   value={qform.answerText}
-                  onChange={e => setQform({ ...qform, answerText: e.target.value })}
+                  onChange={(e) =>
+                    setQform({ ...qform, answerText: e.target.value })
+                  }
                   className="input"
                   rows={4}
                 />
@@ -762,7 +986,7 @@ export default function StaffDashboard() {
                   onClick={createQuestion}
                   disabled={loading}
                 >
-                  {editingQuestion ? 'Update Question' : 'Create Question'}
+                  {editingQuestion ? "Update Question" : "Create Question"}
                 </button>
                 {editingQuestion && (
                   <button
@@ -777,26 +1001,33 @@ export default function StaffDashboard() {
             </div>
           )}
 
-
           {/* Questions List */}
           <div className="space-y-3">
             {questions.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No questions added yet</p>
+              <p className="text-gray-500 text-center py-4">
+                No questions added yet
+              </p>
             ) : (
-              questions.map(question => (
+              questions.map((question) => (
                 <div key={question._id} className="p-3 border rounded">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h5 className="font-medium">{question.title}</h5>
-                      <p className="text-sm text-gray-600 mt-1">{question.description}</p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {question.description}
+                      </p>
                       <div className="flex gap-4 mt-2 text-xs text-gray-500">
                         <span>Section {question.section}</span>
-                        <span className="capitalize">{question.difficulty}</span>
+                        <span className="capitalize">
+                          {question.difficulty}
+                        </span>
                         {question.answerText && (
                           <span>📝 Has reference answer</span>
                         )}
                         {question.answerText && (
-                          <span className="truncate max-w-[300px]">Preview: {question.answerText}</span>
+                          <span className="truncate max-w-[300px]">
+                            Preview: {question.answerText}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -833,21 +1064,37 @@ export default function StaffDashboard() {
 
           {/* Filters */}
           <div className="mb-4 flex items-center gap-2 flex-wrap">
-            <select value={selectedTestId} onChange={e => setSelectedTestId(e.target.value)} className="input max-w-xs">
+            <select
+              value={selectedTestId}
+              onChange={(e) => setSelectedTestId(e.target.value)}
+              className="input max-w-xs"
+            >
               <option value="">All tests in this domain</option>
-              {domainTests.map(t => (
-                <option key={t._id} value={t._id}>{t.title}</option>
+              {domainTests.map((t) => (
+                <option key={t._id} value={t._id}>
+                  {t.title}
+                </option>
               ))}
             </select>
-            <button className="btn-secondary" onClick={handleApplyFilter}>Apply Filter</button>
+            <button className="btn-secondary" onClick={handleApplyFilter}>
+              Apply Filter
+            </button>
 
-            <select value={markFilter} onChange={e => setMarkFilter(e.target.value)} className="input max-w-xs">
+            <select
+              value={markFilter}
+              onChange={(e) => setMarkFilter(e.target.value)}
+              className="input max-w-xs"
+            >
               <option value="all">All answers</option>
               <option value="marked">Marked only</option>
               <option value="unmarked">Unmarked only</option>
             </select>
 
-            <select value={sortMode} onChange={e => setSortMode(e.target.value)} className="input max-w-xs">
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value)}
+              className="input max-w-xs"
+            >
               <option value="default">Sort: Default</option>
               <option value="recent">Sort: Recently updated</option>
               <option value="dateDesc">Sort: Date (Newest first)</option>
@@ -858,49 +1105,79 @@ export default function StaffDashboard() {
             <input
               type="date"
               value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
+              onChange={(e) => setSelectedDate(e.target.value)}
               className="input"
               title="Filter answers by specific date"
             />
             {selectedDate && (
-              <button className="btn-secondary" onClick={() => setSelectedDate('')}>Clear Date</button>
+              <button
+                className="btn-secondary"
+                onClick={() => setSelectedDate("")}
+              >
+                Clear Date
+              </button>
             )}
-            <button className={`btn-primary ${!allStudentsHaveTotals ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={!allStudentsHaveTotals} onClick={downloadAnswersExcel} title={!allStudentsHaveTotals ? 'Please enter marks for all questions before downloading.' : ''}>
+            <button
+              className={`btn-primary ${
+                !allStudentsHaveTotals ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              disabled={!allStudentsHaveTotals}
+              onClick={downloadAnswersExcel}
+              title={
+                !allStudentsHaveTotals
+                  ? "Please enter marks for all questions before downloading."
+                  : ""
+              }
+            >
               Download Answers & Marks
             </button>
-            <button className="btn-secondary" onClick={downloadCompletedUsersExcel}>
+            <button
+              className="btn-secondary"
+              onClick={downloadCompletedUsersExcel}
+            >
               Download Completed Users
             </button>
           </div>
 
           {studentAnswers.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No student submissions yet</p>
+            <p className="text-gray-500 text-center py-8">
+              No student submissions yet
+            </p>
           ) : (
             <div className="space-y-6">
-              {(
-                // Optionally sort students by aggregated timestamps
-                (() => {
-                  const arr = [...studentAnswers];
-                  const maxTs = (s, field) => {
-                    const all = [...s.sections.A, ...s.sections.B];
-                    const pick = (a) => new Date((field === 'updated' ? (a.updatedAt || a.submittedAt) : (a.submittedAt || a.updatedAt))).getTime();
-                    return all.length ? Math.max(...all.map(pick)) : 0;
-                  };
-                  if (sortMode === 'recent' || sortMode === 'dateDesc') {
-                    return arr.sort((a, b) => maxTs(b, 'updated') - maxTs(a, 'updated'));
-                  }
-                  if (sortMode === 'dateAsc') {
-                    return arr.sort((a, b) => maxTs(a, 'updated') - maxTs(b, 'updated'));
-                  }
-                  return studentAnswers;
-                })()
-              ).map((studentData, index) => (
+              {// Optionally sort students by aggregated timestamps
+              (() => {
+                const arr = [...studentAnswers];
+                const maxTs = (s, field) => {
+                  const all = [...s.sections.A, ...s.sections.B];
+                  const pick = (a) =>
+                    new Date(
+                      field === "updated"
+                        ? a.updatedAt || a.submittedAt
+                        : a.submittedAt || a.updatedAt
+                    ).getTime();
+                  return all.length ? Math.max(...all.map(pick)) : 0;
+                };
+                if (sortMode === "recent" || sortMode === "dateDesc") {
+                  return arr.sort(
+                    (a, b) => maxTs(b, "updated") - maxTs(a, "updated")
+                  );
+                }
+                if (sortMode === "dateAsc") {
+                  return arr.sort(
+                    (a, b) => maxTs(a, "updated") - maxTs(b, "updated")
+                  );
+                }
+                return studentAnswers;
+              })().map((studentData, index) => (
                 <div key={index} className="border rounded-lg p-6 bg-white">
                   <div className="border-b pb-4 mb-4">
                     <h4 className="text-lg font-semibold text-gray-800">
                       {studentData.student.name}
                     </h4>
-                    <p className="text-sm text-gray-600">{studentData.student.email}</p>
+                    <p className="text-sm text-gray-600">
+                      {studentData.student.email}
+                    </p>
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-6">
@@ -911,70 +1188,109 @@ export default function StaffDashboard() {
                           Section A
                         </h5>
                         <div className="space-y-3">
-                          {studentData.sections.A
-                            .filter(a => markFilter === 'all' ? true : markFilter === 'marked' ? (a.mark !== null && a.mark !== undefined) : (a.mark === null || a.mark === undefined))
-                            .filter(a => {
+                          {studentData.sections.A.filter((a) =>
+                            markFilter === "all"
+                              ? true
+                              : markFilter === "marked"
+                              ? a.mark !== null && a.mark !== undefined
+                              : a.mark === null || a.mark === undefined
+                          )
+                            .filter((a) => {
                               if (!selectedDate) return true;
                               const d = new Date(a.updatedAt || a.submittedAt);
-                              const iso = d.toISOString().slice(0,10);
+                              const iso = d.toISOString().slice(0, 10);
                               return iso === selectedDate;
                             })
                             .sort((a, b) => {
-                              const ta = new Date(a.updatedAt || a.submittedAt).getTime();
-                              const tb = new Date(b.updatedAt || b.submittedAt).getTime();
-                              if (sortMode === 'recent' || sortMode === 'dateDesc') return tb - ta;
-                              if (sortMode === 'dateAsc') return ta - tb;
+                              const ta = new Date(
+                                a.updatedAt || a.submittedAt
+                              ).getTime();
+                              const tb = new Date(
+                                b.updatedAt || b.submittedAt
+                              ).getTime();
+                              if (
+                                sortMode === "recent" ||
+                                sortMode === "dateDesc"
+                              )
+                                return tb - ta;
+                              if (sortMode === "dateAsc") return ta - tb;
                               return 0;
                             })
                             .map((answer, idx) => (
-                            <div key={answer._id || idx} className="bg-gray-50 p-3 rounded-lg border">
-                              <div className="mb-2">
-                                <h6 className="font-medium text-gray-800">
-                                  Question {idx + 1}: {answer.question.title}
-                                </h6>
-                              </div>
-                              {answer.answerText ? (
-                                <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                                  <div className="text-sm font-medium text-blue-800 mb-1">Typed Answer</div>
-                                  <div className="rich-text-content">
-                                    <SimpleTextEditor
-                                      value={answer.answerText}
-                                      readOnly={true}
-                                      onImageDelete={(imageUrl) => deleteImageFromAnswer(imageUrl, answer._id)}
-                                    />
-                                  </div>
+                              <div
+                                key={answer._id || idx}
+                                className="bg-gray-50 p-3 rounded-lg border"
+                              >
+                                <div className="mb-2">
+                                  <h6 className="font-medium text-gray-800">
+                                    Question {idx + 1}: {answer.question.title}
+                                  </h6>
                                 </div>
-                              ) : null}
-                              <div className="text-xs text-gray-500 mt-2">
-                                Submitted: {new Date(answer.submittedAt).toLocaleString()}
-                              </div>
-                              <div className="mt-2 flex items-center gap-2">
-                                <span className="text-sm">Mark: <span className="font-semibold">{answer.mark !== null && answer.mark !== undefined ? answer.mark : 'Not marked'}</span></span>
-                                {answer.mark !== null && answer.mark !== undefined ? (
-                                  <button
-                                    className="btn-secondary text-xs"
-                                    title="Click to edit mark for this answer"
-                                    onClick={() => editMark(answer._id, answer.mark)}
-                                  >
-                                    Edit Mark
-                                  </button>
-                                ) : (
-                                  <button
-                                    className="btn-primary text-xs"
-                                    title="Click to add mark for this answer"
-                                    onClick={() => addMark(answer._id)}
-                                  >
-                                    Add Mark
-                                  </button>
-                                )}
-                                {answer.markSubmitted && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-600">Submitted</span>
+                                {answer.answerText ? (
+                                  <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                                    <div className="text-sm font-medium text-blue-800 mb-1">
+                                      Typed Answer
+                                    </div>
+                                    <div className="rich-text-content">
+                                      <SimpleTextEditor
+                                        value={answer.answerText}
+                                        readOnly={true}
+                                        onImageDelete={(imageUrl) =>
+                                          deleteImageFromAnswer(
+                                            imageUrl,
+                                            answer._id
+                                          )
+                                        }
+                                      />
+                                    </div>
                                   </div>
-                                )}
+                                ) : null}
+                                <div className="text-xs text-gray-500 mt-2">
+                                  Submitted:{" "}
+                                  {new Date(
+                                    answer.submittedAt
+                                  ).toLocaleString()}
+                                </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                  <span className="text-sm">
+                                    Mark:{" "}
+                                    <span className="font-semibold">
+                                      {answer.mark !== null &&
+                                      answer.mark !== undefined
+                                        ? answer.mark
+                                        : "Not marked"}
+                                    </span>
+                                  </span>
+                                  {answer.mark !== null &&
+                                  answer.mark !== undefined ? (
+                                    <button
+                                      className="btn-secondary text-xs"
+                                      title="Click to edit mark for this answer"
+                                      onClick={() =>
+                                        editMark(answer._id, answer.mark)
+                                      }
+                                    >
+                                      Edit Mark
+                                    </button>
+                                  ) : (
+                                    <button
+                                      className="btn-primary text-xs"
+                                      title="Click to add mark for this answer"
+                                      onClick={() => addMark(answer._id)}
+                                    >
+                                      Add Mark
+                                    </button>
+                                  )}
+                                  {answer.markSubmitted && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-600">
+                                        Submitted
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
                         </div>
                       </div>
                     )}
@@ -986,70 +1302,109 @@ export default function StaffDashboard() {
                           Section B
                         </h5>
                         <div className="space-y-3">
-                          {studentData.sections.B
-                            .filter(a => markFilter === 'all' ? true : markFilter === 'marked' ? (a.mark !== null && a.mark !== undefined) : (a.mark === null || a.mark === undefined))
-                            .filter(a => {
+                          {studentData.sections.B.filter((a) =>
+                            markFilter === "all"
+                              ? true
+                              : markFilter === "marked"
+                              ? a.mark !== null && a.mark !== undefined
+                              : a.mark === null || a.mark === undefined
+                          )
+                            .filter((a) => {
                               if (!selectedDate) return true;
                               const d = new Date(a.updatedAt || a.submittedAt);
-                              const iso = d.toISOString().slice(0,10);
+                              const iso = d.toISOString().slice(0, 10);
                               return iso === selectedDate;
                             })
                             .sort((a, b) => {
-                              const ta = new Date(a.updatedAt || a.submittedAt).getTime();
-                              const tb = new Date(b.updatedAt || b.submittedAt).getTime();
-                              if (sortMode === 'recent' || sortMode === 'dateDesc') return tb - ta;
-                              if (sortMode === 'dateAsc') return ta - tb;
+                              const ta = new Date(
+                                a.updatedAt || a.submittedAt
+                              ).getTime();
+                              const tb = new Date(
+                                b.updatedAt || b.submittedAt
+                              ).getTime();
+                              if (
+                                sortMode === "recent" ||
+                                sortMode === "dateDesc"
+                              )
+                                return tb - ta;
+                              if (sortMode === "dateAsc") return ta - tb;
                               return 0;
                             })
                             .map((answer, idx) => (
-                            <div key={answer._id || idx} className="bg-gray-50 p-3 rounded-lg border">
-                              <div className="mb-2">
-                                <h6 className="font-medium text-gray-800">
-                                  Question {idx + 1}: {answer.question.title}
-                                </h6>
-                              </div>
-                              {answer.answerText ? (
-                                <div className="bg-green-50 p-3 rounded border border-green-200">
-                                  <div className="text-sm font-medium text-green-800 mb-1">Typed Answer</div>
-                                  <div className="rich-text-content">
-                                    <SimpleTextEditor
-                                      value={answer.answerText}
-                                      readOnly={true}
-                                      onImageDelete={(imageUrl) => deleteImageFromAnswer(imageUrl, answer._id)}
-                                    />
-                                  </div>
+                              <div
+                                key={answer._id || idx}
+                                className="bg-gray-50 p-3 rounded-lg border"
+                              >
+                                <div className="mb-2">
+                                  <h6 className="font-medium text-gray-800">
+                                    Question {idx + 1}: {answer.question.title}
+                                  </h6>
                                 </div>
-                              ) : null}
-                              <div className="text-xs text-gray-500 mt-2">
-                                Submitted: {new Date(answer.submittedAt).toLocaleString()}
-                              </div>
-                              <div className="mt-2 flex items-center gap-2">
-                                <span className="text-sm">Mark: <span className="font-semibold">{answer.mark !== null && answer.mark !== undefined ? answer.mark : 'Not marked'}</span></span>
-                                {answer.mark !== null && answer.mark !== undefined ? (
-                                  <button
-                                    className="btn-secondary text-xs"
-                                    title="Click to edit mark for this answer"
-                                    onClick={() => editMark(answer._id, answer.mark)}
-                                  >
-                                    Edit Mark
-                                  </button>
-                                ) : (
-                                  <button
-                                    className="btn-primary text-xs"
-                                    title="Click to add mark for this answer"
-                                    onClick={() => addMark(answer._id)}
-                                  >
-                                    Add Mark
-                                  </button>
-                                )}
-                                {answer.markSubmitted && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-600">Submitted</span>
+                                {answer.answerText ? (
+                                  <div className="bg-green-50 p-3 rounded border border-green-200">
+                                    <div className="text-sm font-medium text-green-800 mb-1">
+                                      Typed Answer
+                                    </div>
+                                    <div className="rich-text-content">
+                                      <SimpleTextEditor
+                                        value={answer.answerText}
+                                        readOnly={true}
+                                        onImageDelete={(imageUrl) =>
+                                          deleteImageFromAnswer(
+                                            imageUrl,
+                                            answer._id
+                                          )
+                                        }
+                                      />
+                                    </div>
                                   </div>
-                                )}
+                                ) : null}
+                                <div className="text-xs text-gray-500 mt-2">
+                                  Submitted:{" "}
+                                  {new Date(
+                                    answer.submittedAt
+                                  ).toLocaleString()}
+                                </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                  <span className="text-sm">
+                                    Mark:{" "}
+                                    <span className="font-semibold">
+                                      {answer.mark !== null &&
+                                      answer.mark !== undefined
+                                        ? answer.mark
+                                        : "Not marked"}
+                                    </span>
+                                  </span>
+                                  {answer.mark !== null &&
+                                  answer.mark !== undefined ? (
+                                    <button
+                                      className="btn-secondary text-xs"
+                                      title="Click to edit mark for this answer"
+                                      onClick={() =>
+                                        editMark(answer._id, answer.mark)
+                                      }
+                                    >
+                                      Edit Mark
+                                    </button>
+                                  ) : (
+                                    <button
+                                      className="btn-primary text-xs"
+                                      title="Click to add mark for this answer"
+                                      onClick={() => addMark(answer._id)}
+                                    >
+                                      Add Mark
+                                    </button>
+                                  )}
+                                  {answer.markSubmitted && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-600">
+                                        Submitted
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
                         </div>
                       </div>
                     )}
@@ -1059,32 +1414,56 @@ export default function StaffDashboard() {
                   <div className="mt-4 pt-4 border-t bg-gray-50 p-3 rounded">
                     <div className="grid grid-cols-4 gap-4 text-sm items-center">
                       <div>
-                        <span className="font-medium text-gray-700">Total Questions:</span>
+                        <span className="font-medium text-gray-700">
+                          Total Questions:
+                        </span>
                         <span className="ml-2 text-gray-600">
-                          {studentData.sections.A.length + studentData.sections.B.length}
+                          {studentData.sections.A.length +
+                            studentData.sections.B.length}
                         </span>
                       </div>
                       <div>
-                        <span className="font-medium text-gray-700">Answers Submitted:</span>
+                        <span className="font-medium text-gray-700">
+                          Answers Submitted:
+                        </span>
                         <span className="ml-2 text-gray-600">
-                          {studentData.sections.A.filter(a => a.answerText || a.answerFile).length +
-                            studentData.sections.B.filter(a => a.answerText || a.answerFile).length}
+                          {studentData.sections.A.filter(
+                            (a) => a.answerText || a.answerFile
+                          ).length +
+                            studentData.sections.B.filter(
+                              (a) => a.answerText || a.answerFile
+                            ).length}
                         </span>
                       </div>
                       <div>
-                        <span className="font-medium text-gray-700">Last Submission:</span>
+                        <span className="font-medium text-gray-700">
+                          Last Submission:
+                        </span>
                         <span className="ml-2 text-gray-600">
-                          {new Date(Math.max(
-                            ...studentData.sections.A.map(a => new Date(a.submittedAt)),
-                            ...studentData.sections.B.map(a => new Date(a.submittedAt))
-                          )).toLocaleString()}
+                          {new Date(
+                            Math.max(
+                              ...studentData.sections.A.map(
+                                (a) => new Date(a.submittedAt)
+                              ),
+                              ...studentData.sections.B.map(
+                                (a) => new Date(a.submittedAt)
+                              )
+                            )
+                          ).toLocaleString()}
                         </span>
                       </div>
                       <div className="text-right">
-                        {typeof studentData.totalMark === 'number' && (
-                          <span className="mr-3 font-semibold text-emerald-700">Total: {studentData.totalMark}</span>
+                        {typeof studentData.totalMark === "number" && (
+                          <span className="mr-3 font-semibold text-emerald-700">
+                            Total: {studentData.totalMark}
+                          </span>
                         )}
-                        <button className="btn-primary text-sm" onClick={() => calculateTotalForStudent(studentData.student._id)}>
+                        <button
+                          className="btn-primary text-sm"
+                          onClick={() =>
+                            calculateTotalForStudent(studentData.student._id)
+                          }
+                        >
                           Calculate Total
                         </button>
                       </div>
