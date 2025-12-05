@@ -248,13 +248,20 @@ export default function AdminDashboard() {
       return;
     }
 
+    // Validate duration
+    const duration = form.durationMinutes || 60;
+    if (!duration || isNaN(duration) || duration < 1) {
+      dialog.alert("Please enter a valid duration (minimum 1 minute)");
+      return;
+    }
+
     // Prepare payload
     const payload = {
       title: form.title,
       domains: form.domains,
       startDate: startISO,
       endDate: endISO,
-      durationMinutes: form.durationMinutes,
+      durationMinutes: duration,
       eligibleStudents: form.isOpenToAll ? [] : form.eligibleStudents,
     };
 
@@ -343,12 +350,19 @@ export default function AdminDashboard() {
         )
       : [];
 
+    // Validate duration
+    const duration = editingTest.durationMinutes || 60;
+    if (!duration || isNaN(duration) || duration < 1) {
+      dialog.alert("Please enter a valid duration (minimum 1 minute)");
+      return;
+    }
+
     const payload = {
       title: editingTest.title,
       domains: domainIds,
       startDate: startISO,
       endDate: endISO,
-      durationMinutes: editingTest.durationMinutes,
+      durationMinutes: duration,
       eligibleStudents: eligibleStudentIds,
     };
 
@@ -890,13 +904,34 @@ export default function AdminDashboard() {
               <input
                 type="number"
                 placeholder="Enter duration in minutes..."
-                value={form.durationMinutes}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    durationMinutes: parseInt(e.target.value) || 60,
-                  })
-                }
+                value={form.durationMinutes || ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty string for clearing, otherwise parse as integer
+                  if (value === "") {
+                    setForm({
+                      ...form,
+                      durationMinutes: "",
+                    });
+                  } else {
+                    const numValue = parseInt(value, 10);
+                    if (!isNaN(numValue) && numValue > 0) {
+                      setForm({
+                        ...form,
+                        durationMinutes: numValue,
+                      });
+                    }
+                  }
+                }}
+                onBlur={(e) => {
+                  // If empty on blur, set to default 60
+                  if (e.target.value === "" || !e.target.value) {
+                    setForm({
+                      ...form,
+                      durationMinutes: 60,
+                    });
+                  }
+                }}
                 className="input w-full"
                 min="1"
                 required
@@ -1650,13 +1685,34 @@ export default function AdminDashboard() {
                 </label>
                 <input
                   type="number"
-                  value={editingTest.durationMinutes}
-                  onChange={(e) =>
-                    setEditingTest({
-                      ...editingTest,
-                      durationMinutes: parseInt(e.target.value) || 60,
-                    })
-                  }
+                  value={editingTest.durationMinutes || ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow empty string for clearing, otherwise parse as integer
+                    if (value === "") {
+                      setEditingTest({
+                        ...editingTest,
+                        durationMinutes: "",
+                      });
+                    } else {
+                      const numValue = parseInt(value, 10);
+                      if (!isNaN(numValue) && numValue > 0) {
+                        setEditingTest({
+                          ...editingTest,
+                          durationMinutes: numValue,
+                        });
+                      }
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // If empty on blur, set to default 60
+                    if (e.target.value === "" || !e.target.value) {
+                      setEditingTest({
+                        ...editingTest,
+                        durationMinutes: 60,
+                      });
+                    }
+                  }}
                   className="border p-2 rounded w-full"
                   min="1"
                   required
